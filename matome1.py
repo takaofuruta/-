@@ -1,24 +1,11 @@
 import streamlit as st
-import subprocess
-import sys
-import os
 import pandas as pd
 from PyPDF2 import PdfReader
-
-# 必要なパッケージをインストール（初回起動時のみ実行）
-def install_packages():
-    required_packages = ["PyPDF2", "openpyxl", "pdfminer.six", "pandas"]
-    for package in required_packages:
-        try:
-            __import__(package)
-        except ImportError:
-            subprocess.run([sys.executable, "-m", "pip", "install", package])
-
-install_packages()
+import os
 
 # Streamlit UI
 st.title("建築データ処理アプリ")
-st.write("複数のPDFをアップロードし、適切な処理を実施した後、Excelファイルを更新・ダウンロードできます。")
+st.write("複数のPDFをアップロードし、それぞれ適切な処理を実施した後、Excelファイルを更新します。")
 
 # PDFファイルのアップロード（複数対応）
 uploaded_files = st.file_uploader("PDFをアップロード（複数選択可）", type=["pdf"], accept_multiple_files=True)
@@ -26,48 +13,44 @@ uploaded_files = st.file_uploader("PDFをアップロード（複数選択可）
 # Excelファイルのテンプレート
 excel_template = "建築工事届.xlsx"
 
-# ファイルの処理
+# ファイルの処理を開始
 if uploaded_files:
     updated_excel = "処理済_建築工事届.xlsx"
 
-    # Excelの元のデータを保持
+    # Excelの元データを保持
     if os.path.exists(excel_template):
-        df_excel = pd.ExcelFile(excel_template)  # シート構造を維持
+        df_excel = pd.ExcelFile(excel_template)  # 既存シート構成を維持
     else:
         st.error(f"テンプレートのExcel ({excel_template}) が見つかりません！")
         st.stop()
 
+    # アップロードされたファイルごとに処理を実行
     for uploaded_file in uploaded_files:
-        pdf_name = uploaded_file.name
+        pdf_name = uploaded_file.name  # ファイル名を取得
+        st.write(f"📂 アップロードされたファイル: {pdf_name}")
 
-        if "図面データ.pdf" in pdf_name:
-            st.write(f"📂 {pdf_name} → **図面データ処理**")
+        try:
             reader = PdfReader(uploaded_file)
-            text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            # **図面データの処理を追加（例：寸法抽出）**
+            extracted_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-        elif "面積表　図面.pdf" in pdf_name:
-            st.write(f"📂 {pdf_name} → **面積表データ処理**")
-            reader = PdfReader(uploaded_file)
-            text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            # **面積表の処理を追加（例：面積情報抽出）**
+            # ファイル名に応じて処理を分岐
+            if "図面データ.pdf" in pdf_name:
+                st.write(f"⚙ {pdf_name} → **図面データ処理開始**")
+                # ここで図面データの処理を追加
 
-        else:
-            st.warning(f"⚠ {pdf_name} は対応する処理がありません。スキップします。")
+            elif "面積表　図面.pdf" in pdf_name:
+                st.write(f"⚙ {pdf_name} → **面積表データ処理開始**")
+                # ここで面積情報抽出処理を追加
 
-    # Excelファイルの更新（元の構造を維持）
+            else:
+                st.warning(f"⚠ {pdf_name} は対応する処理がありません。スキップします。")
+
+        except Exception as e:
+            st.error(f"❌ PDF処理中にエラーが発生: {e}")
+
+    # Excelの更新（元の構造を維持）
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
-        for sheet_name in df_excel.sheet_names:
-            df = pd.read_excel(df_excel, sheet_name=sheet_name)
-            df.to_excel(writer, sheet_name=sheet_name, index=False)  # **元のシート構造を維持して更新**
-
-    st.success(f"Excelファイル ({updated_excel}) を更新しました！")
-
-    # ダウンロードボタン
-    with open(updated_excel, "rb") as f:
-        st.download_button(label="📥 処理済みExcelをダウンロード", data=f, file_name=updated_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-
+        for sheet_name in df_excel
 
 
 
