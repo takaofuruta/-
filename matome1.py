@@ -52,6 +52,12 @@ if uploaded_files:
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
         for sheet_name in df_excel:
 
+with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
+    for sheet_name in df_excel.sheet_names:  # `:` を追加
+        df = pd.read_excel(df_excel, sheet_name=sheet_name)
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+
 
 
 
