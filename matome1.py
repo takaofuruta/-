@@ -1,60 +1,36 @@
-#!/usr/bin/env python
-# coding: utf-8
 
-# In[1]:
-
-
-#pyファイル更新コード
-import subprocess
-subprocess.run(['jupyter', 'nbconvert', '--to', 'python', 'matome1.ipynb'])
-
-
-# In[2]:
-
-
-# !pip install PyPDF2
-
-
-# In[3]:
-
-
-# !pip install openpyxl
-
-
-# In[4]:
-
-
-# !pip install pdfminer.six
-
-
-# In[ ]:
-
-
-
-
-
-# In[5]:
-
-
-#これで、スクリプトがJupyter依存なしで動くはず！一度試してみて、また進展があれば教えてね
-import subprocess
-subprocess.run(["pip", "install", "PyPDF2"])
-
-
-# # 【手入力】PDFの名前を毎度変更↓
-
-# In[6]:
-
-
+import streamlit as st
 import subprocess
 import sys
 
+# 必要なパッケージをインストール
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
-install("PyPDF2")
-install("openpyxl")
-install("pdfminer.six")
+# 必須パッケージをインストール
+for package in ["PyPDF2", "openpyxl", "pdfminer.six"]:
+    install(package)
+
+# Streamlit UI
+st.title("Python Script Runner")
+
+# PDFファイルのアップロード
+uploaded_file = st.file_uploader("PDFファイルを選択", type=["pdf"])
+
+if uploaded_file:
+    # ファイルを保存する（ローカル実行時用）
+    with open("uploaded.pdf", "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    st.success("PDFがアップロードされました！")
+
+# スクリプト実行ボタン
+if st.button("Pythonスクリプトを実行"):
+    try:
+        subprocess.run(['python', 'matome1.py'])
+        st.success("スクリプト実行完了！")
+    except Exception as e:
+        st.error(f"エラー: {e}")
 
 
 from PyPDF2 import PdfReader
