@@ -50,7 +50,8 @@ if uploaded_files:
 
     # Excelの更新（元の構造を維持）
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
-        for sheet_name in df_excel
+        for sheet_name in df_excel:
+
 
 
 
