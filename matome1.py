@@ -1,36 +1,47 @@
-
 import streamlit as st
 import subprocess
 import sys
+import os
 
-# 必要なパッケージをインストール
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+# 必要なパッケージをインストール（初回起動時）
+def install_packages():
+    required_packages = ["PyPDF2", "openpyxl", "pdfminer.six"]
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            subprocess.run([sys.executable, "-m", "pip", "install", package])
 
-# 必須パッケージをインストール
-for package in ["PyPDF2", "openpyxl", "pdfminer.six"]:
-    install(package)
+install_packages()
 
 # Streamlit UI
-st.title("Python Script Runner")
+st.title("PDFデータ処理アプリ")
+st.write("アップロードしたPDFファイルの寸法データを抽出・解析します")
 
-# PDFファイルのアップロード
-uploaded_file = st.file_uploader("PDFファイルを選択", type=["pdf"])
+# PDFファイルアップロード
+uploaded_file = st.file_uploader("PDFを選択", type=["pdf"])
 
 if uploaded_file:
-    # ファイルを保存する（ローカル実行時用）
-    with open("uploaded.pdf", "wb") as f:
+    # ファイルを保存
+    pdf_path = "uploaded.pdf"
+    with open(pdf_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
     st.success("PDFがアップロードされました！")
 
-# スクリプト実行ボタン
-if st.button("Pythonスクリプトを実行"):
-    try:
-        subprocess.run(['python', 'matome1.py'])
-        st.success("スクリプト実行完了！")
-    except Exception as e:
-        st.error(f"エラー: {e}")
+    # スクリプトの実行ボタン
+    if st.button("解析開始"):
+        try:
+            result = subprocess.run(["python", "matome1.py"], capture_output=True, text=True)
+            st.success("解析完了！")
+            st.text_area("結果", result.stdout)
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
+
+# 終了時に一時ファイルを削除
+if os.path.exists(pdf_path):
+    os.remove(pdf_path)
+
 
 
 from PyPDF2 import PdfReader
