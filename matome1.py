@@ -13,7 +13,7 @@ uploaded_files = st.file_uploader("PDFをアップロード（複数選択可）
 # Excelファイルのテンプレート
 excel_template = "建築工事届.xlsx"
 
-# ファイルの処理を開始
+# ファイルの処理開始
 if uploaded_files:
     updated_excel = "処理済_建築工事届.xlsx"
 
@@ -24,16 +24,16 @@ if uploaded_files:
         st.error(f"テンプレートのExcel ({excel_template}) が見つかりません！")
         st.stop()
 
-    # アップロードされたファイルごとに処理を実行
+    # アップロードされたファイルごとに処理
     for uploaded_file in uploaded_files:
-        pdf_name = uploaded_file.name  # ファイル名を取得
+        pdf_name = uploaded_file.name  # ファイル名取得
         st.write(f"📂 アップロードされたファイル: {pdf_name}")
 
         try:
             reader = PdfReader(uploaded_file)
             extracted_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-            # ファイル名に応じて処理を分岐
+            # **ファイル名で処理分岐**
             if "図面データ.pdf" in pdf_name:
                 st.write(f"⚙ {pdf_name} → **図面データ処理開始**")
                 # ここで図面データの処理を追加
@@ -48,15 +48,15 @@ if uploaded_files:
         except Exception as e:
             st.error(f"❌ PDF処理中にエラーが発生: {e}")
 
-    # Excelの更新（元の構造を維持）
+    # **Excelの更新（元の構造を維持）**
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
         for sheet_name in df_excel.sheet_names:
-            df = pd.read_excel(df_excel, sheet_name=sheet_name)  # 修正: `df_excel` ではなく `pd.read_excel` を使用
+            df = pd.read_excel(df_excel, sheet_name=sheet_name)  # **修正: `df_excel` を `pd.read_excel()` に変更**
             df.to_excel(writer, sheet_name=sheet_name, index=False)
 
     st.success(f"✅ Excelファイル ({updated_excel}) を更新しました！")
 
-    # ダウンロードボタン
+    # **ダウンロードボタン**
     with open(updated_excel, "rb") as f:
         st.download_button(label="📥 処理済みExcelをダウンロード", data=f, file_name=updated_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
