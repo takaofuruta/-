@@ -50,14 +50,15 @@ if uploaded_files:
 
     # Excelの更新（元の構造を維持）
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
-        for sheet_name in df_excel:
+        for sheet_name in df_excel.sheet_names:
+            df = pd.read_excel(df_excel, sheet_name=sheet_name)  # 修正: `df_excel` ではなく `pd.read_excel` を使用
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
-    for sheet_name in df_excel.sheet_names:  # `:` を追加
-        df = pd.read_excel(df_excel, sheet_name=sheet_name)
-        df.to_excel(writer, sheet_name=sheet_name, index=False)
+    st.success(f"✅ Excelファイル ({updated_excel}) を更新しました！")
 
-
+    # ダウンロードボタン
+    with open(updated_excel, "rb") as f:
+        st.download_button(label="📥 処理済みExcelをダウンロード", data=f, file_name=updated_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 
