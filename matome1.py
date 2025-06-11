@@ -1,95 +1,134 @@
 import streamlit as st
-import pandas as pd
+from PyPDF2 import PdfReader
 import openpyxl
-import os
 import re
 import unicodedata
-from PyPDF2 import PdfReader
-from pdfminer.high_level import extract_text
-from openpyxl.styles import Alignment
 
-# Streamlit UI
-st.title("建築データ処理アプリ")
-st.write("『図面データ.pdf』『面積表 図面.pdf』をアップロードして処理を行い、Excelを更新します。")
+# Streamlitタイトルと説明
+st.title("PDF to Excel Processing App")
+st.write("Upload multiple PDF files and process them to update an Excel template!")
 
-# PDFファイルのアップロード（特定の2つのファイルのみ）
-uploaded_files = st.file_uploader("PDFをアップロード（2つのファイルのみ選択可）", type=["pdf"], accept_multiple_files=True)
+# ファイルアップロード
+uploaded_files = st.file_uploader("Upload your PDF files (e.g., 図面データ.pdf, 面積表 図面.pdf)", accept_multiple_files=True, type=["pdf"])
 
-# Excelファイルのテンプレート
+# エクセルテンプレートのファイル名
 excel_template = "建築工事届.xlsx"
 
-# ファイルの処理開始
 if uploaded_files:
-    updated_excel = "処理済_建築工事届.xlsx"
+    # エクセルテンプレートを読み込む
+    try:
+        workbook = openpyxl.load_workbook(excel_template)
+        sheet_name2 = "第三種換気"
 
-    # Excelの元データを保持
-    if os.path.exists(excel_template):
-        wb = openpyxl.load_workbook(excel_template)
-    else:
-        st.error(f"テンプレートのExcel ({excel_template}) が見つかりません！")
-        st.stop()
+        if sheet_name2 not in workbook.sheetnames:
+            st.error(f"Sheet '{sheet_name2}' not found in the template!")
+        else:
+            sheet = workbook[sheet_name2]
 
-    # PDFの処理ロジック
-    for uploaded_file in uploaded_files:
-        pdf_name = uploaded_file.name
-        st.write(f"📂 アップロードされたファイル: {pdf_name}")
+        # 各PDFファイルを処理
+        for uploaded_file in uploaded_files:
+            pdf_reader = PdfReader(uploaded_file)
+            full_text = pdf_reader.pages[0].extract_text()
 
-        try:
-            reader = PdfReader(uploaded_file)
-            extracted_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+            # 前処理: 空白や改行を削除
+            processed_text = re.sub(r"\s+", "", full_text)
 
-            if "図面データ.pdf" in pdf_name:
-                st.write(f"⚙ {pdf_name} → **図面データの処理開始**")
+            if "図面データ.pdf" in uploaded_file.name:
+                # 図面データの処理: 建築主情報を抽出
+                name_start = processed_text.find("建築主:") + len("建築主:")
+                name_end = processed_text.find("〒") - 1
+                name = processed_text[name_start:name_end].strip()
 
-                # 建築主名の抽出
-                name_start = extracted_text.find("建築主:") + len("建築主:")
-                name_end = extracted_text.find("〒") - 1
-                name = extracted_text[name_start:name_end]
+                zip_start = processed_text.find("〒") + 1
+                zip_end = processed_text.find("-", zip_start) + 5
+                zip_code = processed_text[zip_start:zip_end].strip()
 
-                # 郵便番号の抽出
-                yubinbango_start = extracted_text.find("〒") + 1
-                yubinbango_end = extracted_text.find("-", yubinbango_start)
-                yubinbango = extracted_text[yubinbango_start:yubinbango_end]
+                address_start = processed_text.find("住所") + len("住所")
+                address_end = processed_text.find("電話番号", address_start)
+                address = processed_text[address_start:address_end].strip()
 
-                # 建築場所の抽出
-                place_start = extracted_text.find("建築場所（地名地番）")
-                place_line_start = extracted_text.find("\n", place_start) + 1
-                place_line_end = extracted_text.find("\n", place_line_start)
-                address = extracted_text[place_line_start:place_line_end].strip()
+                phone_start = processed_text.find("電話番号") + len("電話番号")
+                phone_end = processed_text.find("-", phone_start) + 9
+                phone = processed_text[phone_start:phone_end].strip()
 
-                # Excelの更新（建築工事届（別記第40号様式））
-                sheet_name1 = "建築工事届（別記第40号様式）"
-                ws1 = wb[sheet_name1]
-                ws1["I16"] = name
-                ws1["I17"] = yubinbango
-                ws1["O72"] = address
+                # エクセルに転記
+                sheet["I16"] = name  # 建築主名
+                sheet["I17"] = zip_code  # 郵便番号
+                sheet["I18"] = address  # 住所
+                sheet["I19"] = phone  # 電話番号
 
-            elif "面積表 図面.pdf" in pdf_name:
-                st.write(f"⚙ {pdf_name} → **面積表の処理開始**")
+                st.write(f"Processed 図面データ: Added 建築主情報 (Name: {name}, Zip: {zip_code}, Address: {address}, Phone: {phone}) to Excel.")
 
-                # 面積抽出
-                numeric_values = [line.strip().replace("㎡", "").replace("％", "")
-                                  for line in extracted_text.splitlines() if re.fullmatch(r"[\d.]+", line.strip())]
+            elif "面積表 図面.pdf" in uploaded_file.name:
+                # 面積表データの処理
+                table_pattern = r"部屋名.*?合計"
+                tables = re.findall(table_pattern, processed_text)
 
-                site_area = numeric_values[0]  # 敷地面積
-                total_floor_area = numeric_values[3]  # 延床面積
+                # 各表のデータを抽出
+                room_pattern = r"(玄関|階段|トイレ|ＬＤＫ|洗面脱衣室|洋室|廊下|サービスルーム)[^\d]*([\d.]+)"
+                ceiling_heights = {
+                    "玄関": 2.58,
+                    "ホール": 2.4,
+                    "階段": 2.875,
+                    "洗面脱衣室": 2.4,
+                    "洋室": 2.4,
+                    "トイレ": 2.4,
+                    "廊下": 2.4,
+                    "サービスルーム": 2.4,
+                    "ＬＤＫ": 2.4
+                }
 
-                # Excelの更新（面積情報の転記）
-                sheet_name2 = "第三種換気"
-                ws2 = wb[sheet_name2]
-                ws2["K92"] = total_floor_area
-                ws2["S109"] = site_area
+                floor_data = {}
+                for table in tables:
+                    # 「玄関」の有無で1階・2階を判別
+                    if "玄関" in table:
+                        floor_name = "1階"
+                    else:
+                        floor_name = "2階"
 
-            else:
-                st.warning(f"⚠ {pdf_name} は対象外のPDFです。スキップします。")
+                    matches = re.findall(room_pattern, table)
+                    room_counts = {}
+                    floor_areas = {}
+                    for room, area in matches:
+                        room_counts[room] = room_counts.get(room, 0) + 1
+                        unique_room = f"{room}{room_counts[room]}" if room_counts[room] > 1 else room
+                        floor_areas[unique_room] = float(area)
 
-        except Exception as e:
-            st.error(f"❌ PDF処理中にエラーが発生: {e}")
+                    if floor_name not in floor_data:
+                        floor_data[floor_name] = floor_areas
+                    else:
+                        floor_data[floor_name].update(floor_areas)
 
-    # Excelファイルの保存
-    wb.save(updated_excel)
-    st.success(f"✅ Excelファイル ({updated_excel}) を更新しました！")
+                # エクセルに転記
+                ground_floor_areas = floor_data.get("1階", {})
+                for i, (room, area) in enumerate(ground_floor_areas.items(), start=8):
+                    sheet.cell(row=i, column=2, value=room)
+                    sheet.cell(row=i, column=4, value=area)
+                    room_base_name = re.sub(r"\d+$", "", room)
+                    sheet.cell(row=i, column=5, value=ceiling_heights.get(room_base_name, "-"))
 
-    # ダウンロードボタンの追加
-    with open(updated_excel, "rb") as f:
-        st.download_button(label="📥 処理済みExcelをダウンロード", data=f, file_name=updated_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                first_floor_areas = floor_data.get("2階", {})
+                for i, (room, area) in enumerate(first_floor_areas.items(), start=19):
+                    sheet.cell(row=i, column=2, value=room)
+                    sheet.cell(row=i, column=4, value=area)
+                    room_base_name = re.sub(r"\d+$", "", room)
+                    sheet.cell(row=i, column=5, value=ceiling_heights.get(room_base_name, "-"))
+
+                st.write("Processed 面積表: Room data added to Excel.")
+
+        # 処理済みエクセルファイルを保存
+        output_file = "Processed_建築工事届.xlsx"
+        workbook.save(output_file)
+
+        # ダウンロードボタンを表示
+        with open(output_file, "rb") as file:
+            st.download_button(
+                label="Download Processed Excel",
+                data=file,
+                file_name=output_file
+            )
+
+        st.success("All processing completed successfully!")
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
