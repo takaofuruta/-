@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from PyPDF2 import PdfReader
 
-# 必須パッケージをインストール（環境によっては初回のみ実行）
+# 必要なパッケージをインストール（初回起動時のみ実行）
 def install_packages():
     required_packages = ["PyPDF2", "openpyxl", "pdfminer.six", "pandas"]
     for package in required_packages:
@@ -28,7 +28,7 @@ excel_template = "建築工事届.xlsx"
 
 # ファイルの処理
 if uploaded_files:
-    updated_excel = "更新済_建築工事届.xlsx"
+    updated_excel = "処理済_建築工事届.xlsx"
 
     # Excelの元のデータを保持
     if os.path.exists(excel_template):
@@ -37,7 +37,6 @@ if uploaded_files:
         st.error(f"テンプレートのExcel ({excel_template}) が見つかりません！")
         st.stop()
 
-    # PDFごとの処理分岐
     for uploaded_file in uploaded_files:
         pdf_name = uploaded_file.name
 
@@ -45,28 +44,33 @@ if uploaded_files:
             st.write(f"📂 {pdf_name} → **図面データ処理**")
             reader = PdfReader(uploaded_file)
             text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            # ここで図面データの処理を追加（例：寸法抽出）
+            # **図面データの処理を追加（例：寸法抽出）**
 
         elif "面積表　図面.pdf" in pdf_name:
             st.write(f"📂 {pdf_name} → **面積表データ処理**")
             reader = PdfReader(uploaded_file)
             text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            # ここで面積表の処理を追加（例：面積情報抽出）
+            # **面積表の処理を追加（例：面積情報抽出）**
 
         else:
             st.warning(f"⚠ {pdf_name} は対応する処理がありません。スキップします。")
 
-    # Excelファイルの更新（既存構造を維持）
+    # Excelファイルの更新（元の構造を維持）
     with pd.ExcelWriter(updated_excel, mode="w", engine="openpyxl") as writer:
         for sheet_name in df_excel.sheet_names:
             df = pd.read_excel(df_excel, sheet_name=sheet_name)
-            df.to_excel(writer, sheet_name=sheet_name, index=False)  # 構造を維持して更新
+            df.to_excel(writer, sheet_name=sheet_name, index=False)  # **元のシート構造を維持して更新**
 
     st.success(f"Excelファイル ({updated_excel}) を更新しました！")
 
     # ダウンロードボタン
     with open(updated_excel, "rb") as f:
         st.download_button(label="📥 処理済みExcelをダウンロード", data=f, file_name=updated_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+
+
+
 
 
 
