@@ -1,6 +1,6 @@
 import streamlit as st
 import re
-from PyPDF2 import PdfReader
+# from PyPDF2 import PdfReader
 from pdfminer.high_level import extract_text
 import openpyxl
 from openpyxl.styles import Alignment
